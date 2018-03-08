@@ -148,11 +148,11 @@ int main(int argc, char *argv[])
         {
             if (i < nz - 1)
             {
-                printf("%d, ", J[i]+1);
+                printf("%d, ", J[i] + 1);
             }
             else
             {
-                printf("%d", J[i]+1);
+                printf("%d", J[i] + 1);
             }
         }
         printf("]\n");
@@ -182,7 +182,131 @@ int main(int argc, char *argv[])
         /*************************/
         /* ELLPACK FORMAT CALCULATION*/
         /*************************/
-        printf("hello");
+        int MAXNZ;
+        /**************************/
+        /*    MAXNZ CALULATION    */
+        /**************************/
+        MAXNZ = 0;
+        int local_row_nz = 1;
+        for (i = 0; i < nz; i++)
+        {
+            if (I[i] == I[i + 1])
+            {
+                local_row_nz++;
+            }
+            else
+            {
+                if (local_row_nz > MAXNZ)
+                {
+                    MAXNZ = local_row_nz;
+                }
+                local_row_nz = 1;
+            }
+        }
+        printf("MAXNZ : %d\n", MAXNZ);
+        /**************************/
+
+        /***********************/
+        /* JA & AS CALCULATION */
+        /***********************/
+        int **JA = (int **)malloc(M * sizeof(int *));
+        int **AS = (int **)malloc(M * sizeof(int *));
+        for (int i = 0; i < M; i++)
+        {
+            JA[i] = (int *)malloc(MAXNZ * sizeof(int));
+            AS[i] = (int *)malloc(MAXNZ * sizeof(int));
+        }
+        int *locals = (int *)malloc(M * sizeof(int));
+
+        int i = 0; // from 0 to nz
+        int j = 0; // from 0 to M
+        int k = 0; // from 0 to MAXNZ
+
+        local_row_nz = 1;
+        int index = 0;
+        for (i = 0; i < nz; i++)
+        {
+            if (I[i] == index && I[i + 1] == index)
+            {
+                local_row_nz++;
+            }
+            else
+            {
+                locals[index] = local_row_nz;
+                local_row_nz = 1;
+                index++;
+            }
+        }
+        index = 0;
+        for (i = 0; i < nz; i++)
+        {
+            if (locals[index] == MAXNZ)
+            {
+                if (k < MAXNZ)
+                {
+                    JA[j][k] = J[i] + 1;
+                    AS[j][k] = val[i];
+                    k++;
+                }
+                else
+                {
+                    k = 0;
+                    j++;
+                    JA[j][k] = J[i] + 1;
+                    AS[j][k] = val[i];
+                    k++;
+                    index++;
+                }
+            }
+            else
+            {
+                if (k < locals[index])
+                {
+                    JA[j][k] = J[i] + 1;
+                    AS[j][k] = val[i];
+                    k++;
+                }
+                else
+                {
+                    k = 0;
+                    j++;
+                    JA[j][k] = J[i] + 1;
+                    AS[j][k] = val[i];
+                    k++;
+                    index++;
+                }
+            }
+        }
+
+        /***************/
+        /* JA PRINTING */
+        /***************/
+        printf("JA = \n");
+        for (i = 0; i < M; i++)
+        {
+            for (j = 0; j < MAXNZ; j++)
+            {
+                printf("%d  ", JA[i][j]);
+            }
+            printf("\n");
+        }
+
+        /***************/
+        /* AS PRINTING */
+        /***************/
+        printf("AS = \n");
+        for (i = 0; i < M; i++)
+        {
+            for (j = 0; j < MAXNZ; j++)
+            {
+                printf("%d  ", AS[i][j]);
+            }
+            printf("\n");
+        }
+
+        free(JA);
+        free(AS);
+        free(locals);
     }
     return 0;
 }
