@@ -225,8 +225,6 @@ int main(int argc, char *argv[])
         fprintf(stdout, "CSR Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
                 M, tmlt, mflops);
         free(IRP);
-        free(x);
-        free(y);
     }
     else
     {
@@ -368,11 +366,14 @@ int main(int argc, char *argv[])
 
         fprintf(stdout, "Ellpack Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
                 M, tmlt, mflops);
-        free(x);
-        free(y);
         free(JA);
         free(AS);
         free(locals);
     }
+    free(x);
+    free(y);
+    free(I);
+    free(J);
+    free(val);
     return 0;
 }
