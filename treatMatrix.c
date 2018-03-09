@@ -30,7 +30,7 @@ void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, con
     }
 }
 
-void MatrixVectorELL(int M, const int MAXNZ, const int **JA, const double **AS, const double *x, double *y)
+void MatrixVectorELL(int M, const int MAXNZ, int **JA, double **AS, const double *x, double *y)
 {
     int i, j;
     double t;
@@ -302,11 +302,14 @@ int main(int argc, char *argv[])
                 else
                 {
                     k = 0;
-                    j++;
-                    JA[j][k] = J[i] + 1;
-                    AS[j][k] = val[i];
-                    k++;
-                    index++;
+                    if (j < M)
+                    {
+                        j++;
+                        JA[j][k] = J[i] + 1;
+                        AS[j][k] = val[i];
+                        k++;
+                        index++;
+                    }
                 }
             }
             else
@@ -320,11 +323,14 @@ int main(int argc, char *argv[])
                 else
                 {
                     k = 0;
-                    j++;
-                    JA[j][k] = J[i] + 1;
-                    AS[j][k] = val[i];
-                    k++;
-                    index++;
+                    if (j < M)
+                    {
+                        j++;
+                        JA[j][k] = J[i] + 1;
+                        AS[j][k] = val[i];
+                        k++;
+                        index++;
+                    }
                 }
             }
         }
