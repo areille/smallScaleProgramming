@@ -15,7 +15,7 @@
 #include "mmio.h"
 
 // Simple CPU implementation of matrix-vector product
-void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *restrict y)
+void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
 {
     int i, j;
     double t;
@@ -205,10 +205,10 @@ int main(int argc, char *argv[])
         MatrixVectorCSR(M, IRP, J, val, x, y);
         double t2 = wtime();
         double tmlt = (t2 - t1);
-        double mflops = (2.0e-6) * nrows * ncols / tmlt;
+        double mflops = (2.0e-6) * M / tmlt;
 
-        fprintf(stdout, "Matrix-Vector product of size %d x %d with 1 thread: time %lf  MFLOPS %lf \n",
-                nrows, ncols, tmlt, mflops);
+        fprintf(stdout, "Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
+                M, tmlt, mflops);
         free(IRP);
         free(x);
         free(y);
