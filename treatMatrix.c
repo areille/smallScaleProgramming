@@ -10,7 +10,25 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <omp.h>
+#include "wtime.h"
 #include "mmio.h"
+
+// Simple CPU implementation of matrix-vector product
+void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *restrict y)
+{
+    int i, j;
+    double t;
+    for (i = 0; i < M; ++i)
+    {
+        t = 0.0;
+        for (j = IRP[i]; j < IRP[i + 1]; ++j)
+        {
+            t += AS[j] * x[JA[j]];
+        }
+        y[i] = t;
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -98,6 +116,14 @@ int main(int argc, char *argv[])
         fprintf(stdout, "%d %d %20.19g\n", I[i], J[i], val[i]);
     printf("Columns : %d, rows : %d, non-zeros : %d\n\n", M, N, nz);
 
+    // CREATING VECTORS
+    double *x = (double *)malloc(sizeof(double) * M);
+    double *y = (double *)malloc(sizeof(double) * M);
+
+    for (i = 0; i < M; i++)
+    {
+        x[i] = 100.0f * ((double)rand()) / RAND_MAX;
+    }
     if (isCsrFormat == true)
     {
         /*************************/
@@ -121,61 +147,71 @@ int main(int argc, char *argv[])
                 index++;
             }
         }
-        printf("---- CSR FORMAT RESULTS ----\n\n");
-        /****************/
-        /* IRP PRINTING */
-        /****************/
-        printf("IRP = [");
-        for (i = 0; i < M + 1; i++)
-        {
-            if (i < M)
-            {
-                printf("%d, ", IRP[i]);
-            }
-            else
-            {
-                printf("%d", IRP[i]);
-            }
-        }
-        printf("]\n");
-        /****************/
+        // printf("---- CSR FORMAT RESULTS ----\n\n");
+        // /****************/
+        // /* IRP PRINTING */
+        // /****************/
+        // printf("IRP = [");
+        // for (i = 0; i < M + 1; i++)
+        // {
+        //     if (i < M)
+        //     {
+        //         printf("%d, ", IRP[i]);
+        //     }
+        //     else
+        //     {
+        //         printf("%d", IRP[i]);
+        //     }
+        // }
+        // printf("]\n");
+        // /****************/
 
-        /****************/
-        /* JA PRINTING */
-        /****************/
-        printf("JA = [");
-        for (i = 0; i < nz; i++)
-        {
-            if (i < nz - 1)
-            {
-                printf("%d, ", J[i] + 1);
-            }
-            else
-            {
-                printf("%d", J[i] + 1);
-            }
-        }
-        printf("]\n");
-        /****************/
+        // /****************/
+        // /* JA PRINTING */
+        // /****************/
+        // printf("JA = [");
+        // for (i = 0; i < nz; i++)
+        // {
+        //     if (i < nz - 1)
+        //     {
+        //         printf("%d, ", J[i] + 1);
+        //     }
+        //     else
+        //     {
+        //         printf("%d", J[i] + 1);
+        //     }
+        // }
+        // printf("]\n");
+        // /****************/
 
-        /****************/
-        /* AS PRINTING */
-        /****************/
-        printf("AS = [");
-        for (i = 0; i < nz; i++)
-        {
-            if (i < nz - 1)
-            {
-                printf("%3.2f, ", val[i]);
-            }
-            else
-            {
-                printf("%3.2f", val[i]);
-            }
-        }
-        printf("]\n");
-        /****************/
+        // /****************/
+        // /* AS PRINTING */
+        // /****************/
+        // printf("AS = [");
+        // for (i = 0; i < nz; i++)
+        // {
+        //     if (i < nz - 1)
+        //     {
+        //         printf("%3.2f, ", val[i]);
+        //     }
+        //     else
+        //     {
+        //         printf("%3.2f", val[i]);
+        //     }
+        // }
+        // printf("]\n");
+        // /****************/
+        double t1 = wtime();
+        MatrixVectorCSR(M, IRP, J, val, x, y);
+        double t2 = wtime();
+        double tmlt = (t2 - t1);
+        double mflops = (2.0e-6) * nrows * ncols / tmlt;
+
+        fprintf(stdout, "Matrix-Vector product of size %d x %d with 1 thread: time %lf  MFLOPS %lf \n",
+                nrows, ncols, tmlt, mflops);
         free(IRP);
+        free(x);
+        free(y);
     }
     else
     {
