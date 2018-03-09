@@ -329,31 +329,31 @@ int main(int argc, char *argv[])
             }
         }
 
-        /***************/
-        /* JA PRINTING */
-        /***************/
-        printf("JA = \n");
-        for (i = 0; i < M; i++)
-        {
-            for (j = 0; j < MAXNZ; j++)
-            {
-                printf("%d  ", JA[i][j]);
-            }
-            printf("\n");
-        }
+        // /***************/
+        // /* JA PRINTING */
+        // /***************/
+        // printf("JA = \n");
+        // for (i = 0; i < M; i++)
+        // {
+        //     for (j = 0; j < MAXNZ; j++)
+        //     {
+        //         printf("%d  ", JA[i][j]);
+        //     }
+        //     printf("\n");
+        // }
 
-        /***************/
-        /* AS PRINTING */
-        /***************/
-        printf("AS = \n");
-        for (i = 0; i < M; i++)
-        {
-            for (j = 0; j < MAXNZ; j++)
-            {
-                printf("%d  ", AS[i][j]);
-            }
-            printf("\n");
-        }
+        // /***************/
+        // /* AS PRINTING */
+        // /***************/
+        // printf("AS = \n");
+        // for (i = 0; i < M; i++)
+        // {
+        //     for (j = 0; j < MAXNZ; j++)
+        //     {
+        //         printf("%d  ", AS[i][j]);
+        //     }
+        //     printf("\n");
+        // }
         double t1 = wtime();
         MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
         double t2 = wtime();
