@@ -30,6 +30,21 @@ void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, con
     }
 }
 
+void MatrixVectorELL(int M, const int MAXNZ, const int **JA, const double **AS, const double *x, double *y)
+{
+    int i, j;
+    double t;
+    for (i = 0; i < M; ++i)
+    {
+        t = 0.0;
+        for (j = 0; j < MAXNZ; ++j)
+        {
+            t += AS[i][j] * x[JA[i][j]];
+        }
+        y[i] = t;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int ret_code;
@@ -207,7 +222,7 @@ int main(int argc, char *argv[])
         double tmlt = (t2 - t1);
         double mflops = (2.0e-6) * M / tmlt;
 
-        fprintf(stdout, "Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
+        fprintf(stdout, "CSR Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
                 M, tmlt, mflops);
         free(IRP);
         free(x);
@@ -246,15 +261,15 @@ int main(int argc, char *argv[])
         /* JA & AS CALCULATION */
         /***********************/
         int **JA = (int **)malloc(M * sizeof(int *));
-        int **AS = (int **)malloc(M * sizeof(int *));
-        for (int i = 0; i < M; i++)
+        double **AS = (double **)malloc(M * sizeof(double *));
+        for (i = 0; i < M; i++)
         {
             JA[i] = (int *)malloc(MAXNZ * sizeof(int));
-            AS[i] = (int *)malloc(MAXNZ * sizeof(int));
+            AS[i] = (double *)malloc(MAXNZ * sizeof(double));
         }
         int *locals = (int *)malloc(M * sizeof(int));
 
-        int i = 0; // from 0 to nz
+        i = 0;     // from 0 to nz
         int j = 0; // from 0 to M
         int k = 0; // from 0 to MAXNZ
 
@@ -339,7 +354,16 @@ int main(int argc, char *argv[])
             }
             printf("\n");
         }
+        double t1 = wtime();
+        MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
+        double t2 = wtime();
+        double tmlt = (t2 - t1);
+        double mflops = (2.0e-6) * M / tmlt;
 
+        fprintf(stdout, "Ellpack Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
+                M, tmlt, mflops);
+        free(x);
+        free(y);
         free(JA);
         free(AS);
         free(locals);
