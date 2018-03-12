@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <omp.h>
+// #include <omp.h>
 #include "wtime.h"
 #include "mmio.h"
 
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
         /*************************/
         /* CSR FORMAT CALCULATION*/
         /*************************/
-        int *IRP = (int *)malloc((M + 1) * sizeof(int *));
+        int *IRP = (int *)malloc((M + 1) * sizeof(int));
         // ASSUMING MATLAB FIRST COLUMN INDEXING
         IRP[0] = 1;
         int index = 0;
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
         /***********************/
         /* JA & AS CALCULATION */
         /***********************/
-        int **JA = (int **)malloc(M * sizeof(int *));
+        int **JA = (int **)malloc((M+1) * sizeof(int *));
         double **AS = (double **)malloc(M * sizeof(double *));
         for (i = 0; i < M; i++)
         {
@@ -316,18 +316,22 @@ int main(int argc, char *argv[])
                 {
                     JA[j][k] = J[i] + 1;
                     AS[j][k] = val[i];
+                    printf("k : %d", k);
                     k++;
+                    // printf("j : %d, k : %d, local : %d\n", j, k, locals[index]);
                 }
                 else
                 {
                     k = 0;
-                    if (j < M)
+                    if (j < M-1)
                     {
                         j++;
                         JA[j][k] = J[i] + 1;
                         AS[j][k] = val[i];
                         k++;
                         index++;
+                    } else {
+                        break;
                     }
                 }
             }
@@ -354,7 +358,7 @@ int main(int argc, char *argv[])
         // {
         //     for (j = 0; j < MAXNZ; j++)
         //     {
-        //         printf("%d  ", AS[i][j]);
+        //         printf("%3.2f  ", AS[i][j]);
         //     }
         //     printf("\n");
         // }
