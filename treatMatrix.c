@@ -88,13 +88,18 @@ const int BBS = 1000;
 void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
 {
     int i, j;
-    double t;
-    for (i = 0; i < M; ++i)
+    double sum;
+#pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum) num_threads(4)
+    for (i = 0, i < M, ++i)
     {
-        int nr = min(BBS, M - i);
-        int col = IRP[i];
-        int nc = IRP[i + 1];
-        innerMatrixVector(nr, nc, &(AS[j]), IRP[i + 1], &(x[JA[j]]), 0.0, &(y[i]));
+        sum = 0.0;
+#pragma omp for
+        for (j = IRP[i], j < IRP[i + 1], ++j)
+        {
+            sum += AS[j] * x[JA[j]];
+        }
+#pragma omp critical
+        y[i] = sum;
     }
 }
 
