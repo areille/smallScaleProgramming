@@ -30,6 +30,74 @@ void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, con
     }
 }
 
+inline double dmin(double a, double b) { return a < b ? a : b; }
+
+inline int max(int a, int b) { return a > b ? a : b; }
+inline int min(int a, int b) { return a < b ? a : b; }
+
+// muylti cpu
+void innerMatrixVector(int rows, int cols, const double *A, int ncallc, const double *x,
+                       double beta, double *restrict y)
+{
+    int row, col, idx;
+    double t0, t1;
+
+#pragma omp parallel for shared(x, y, A, rows, cols, ncallc) private(row, col, idx, t0, t1)
+    for (row = 0; row < rows - rows % 2; row += 2)
+    {
+        if (beta == 0.0)
+        {
+            t0 = beta;
+            t1 = beta;
+        }
+        else
+        {
+            t0 = beta * y[row + 0];
+            t1 = beta * y[row + 1];
+        }
+
+        for (col = 0; col < cols - cols % 4; col += 4)
+        {
+            t0 += A[(row + 0) * ncallc + col + 0] * x[col + 0] + A[(row + 0) * ncallc + col + 1] * x[col + 1] + A[(row + 0) * ncallc + col + 2] * x[col + 2] + A[(row + 0) * ncallc + col + 3] * x[col + 3];
+            t1 += A[(row + 1) * ncallc + col + 0] * x[col + 0] + A[(row + 1) * ncallc + col + 1] * x[col + 1] + A[(row + 1) * ncallc + col + 2] * x[col + 2] + A[(row + 1) * ncallc + col + 3] * x[col + 3];
+        }
+        for (col = cols - cols % 4; col < cols; col++)
+        {
+            t0 += A[(row + 0) * ncallc + col] * x[col];
+            t1 += A[(row + 1) * ncallc + col] * x[col];
+        }
+
+        y[row + 0] = t0;
+        y[row + 1] = t1;
+    }
+
+    for (row = rows - rows % 2; row < rows; row++)
+    {
+        double t = 0.0;
+        for (col = 0; col < cols; col++)
+        {
+            int idx = row * ncallc + col;
+            t = t + A[idx] * x[col];
+        }
+        y[row] = t;
+    }
+}
+
+const int BBS = 1000;
+
+void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
+{
+    int i, j;
+    double t;
+    for (i = 0; i < M; ++i)
+    {
+        int nr = min(BBS, M - i);
+        int col = IRP[i];
+        int nc = IRP[i + 1];
+        innerMatrixVector(nr, nc, &(AS[j]), IRP[i + 1], &(x[JA[j]]), 0.0, &(y[i]));
+    }
+}
+
 void MatrixVectorELL(int M, const int MAXNZ, int **JA, double **AS, const double *x, double *y)
 {
     int i, j;
@@ -217,7 +285,8 @@ int main(int argc, char *argv[])
         // printf("]\n");
         // /****************/
         double t1 = wtime();
-        MatrixVectorCSR(M, IRP, J, val, x, y);
+        // MatrixVectorCSR(M, IRP, J, val, x, y);
+        MatrixVectorCSRParallel(M, IRP, J, val, x, y);
         double t2 = wtime();
         double tmlt = (t2 - t1);
         double mflops = (2.0e-6) * M / tmlt;
@@ -258,7 +327,7 @@ int main(int argc, char *argv[])
         /***********************/
         /* JA & AS CALCULATION */
         /***********************/
-        int **JA = (int **)malloc((M+1) * sizeof(int *));
+        int **JA = (int **)malloc((M + 1) * sizeof(int *));
         double **AS = (double **)malloc(M * sizeof(double *));
         for (i = 0; i < M; i++)
         {
@@ -323,14 +392,16 @@ int main(int argc, char *argv[])
                 else
                 {
                     k = 0;
-                    if (j < M-1)
+                    if (j < M - 1)
                     {
                         j++;
                         JA[j][k] = J[i] + 1;
                         AS[j][k] = val[i];
                         k++;
                         index++;
-                    } else {
+                    }
+                    else
+                    {
                         break;
                     }
                 }
