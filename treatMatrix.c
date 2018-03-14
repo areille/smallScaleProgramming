@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-// #include <omp.h>
+#include <omp.h>
 #include "wtime.h"
 #include "mmio.h"
 
@@ -36,6 +36,7 @@ inline int max(int a, int b) { return a > b ? a : b; }
 inline int min(int a, int b) { return a < b ? a : b; }
 
 // muylti cpu
+const int ntimes = 50;
 void innerMatrixVector(int rows, int cols, const double *A, int ncallc, const double *x,
                        double beta, double *restrict y)
 {
@@ -90,11 +91,11 @@ void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double 
     int i, j;
     double sum;
 #pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum) num_threads(4)
-    for (i = 0, i < M, ++i)
+    for (i = 0; i < M; ++i)
     {
         sum = 0.0;
 #pragma omp for
-        for (j = IRP[i], j < IRP[i + 1], ++j)
+        for (j = IRP[i]; j < IRP[i + 1]; ++j)
         {
             sum += AS[j] * x[JA[j]];
         }
@@ -289,15 +290,24 @@ int main(int argc, char *argv[])
         // }
         // printf("]\n");
         // /****************/
-        double t1 = wtime();
-        // MatrixVectorCSR(M, IRP, J, val, x, y);
-        MatrixVectorCSRParallel(M, IRP, J, val, x, y);
-        double t2 = wtime();
-        double tmlt = (t2 - t1);
-        double mflops = (2.0e-6) * M / tmlt;
 
-        fprintf(stdout, "CSR Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
-                M, tmlt, mflops);
+        double tmlt = 1e100;
+        for (int try = 0; try < ntimes; try ++)
+        {
+            double t1 = wtime();
+            MatrixVector(nrows, ncols, A, x, y);
+            double t2 = wtime();
+            tmlt = dmin(tmlt, (t2 - t1));
+        }
+        double mflops = (2.0e-6) * nrows * ncols / tmlt;
+#pragma omp parallel
+        {
+#pragma omp master
+            {
+                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d x %d with %d threads: time %lf  MFLOPS %lf \n",
+                        nrows, ncols, omp_get_num_threads(), tmlt, mflops);
+            }
+        }
         free(IRP);
     }
     else
