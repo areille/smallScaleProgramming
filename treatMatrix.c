@@ -295,7 +295,7 @@ int main(int argc, char *argv[])
         for (int try = 0; try < ntimes; try ++)
         {
             double t1 = wtime();
-            MatrixVector(nrows, ncols, A, x, y);
+            MatrixVectorCSRParallel(M, IRP, J, val, x, y);
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
