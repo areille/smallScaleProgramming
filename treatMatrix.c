@@ -43,7 +43,7 @@ void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double 
 {
     int i, j;
     double sum;
-#pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum)
+#pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum) num_threads(4)
     for (i = 0; i < M; ++i)
     {
         sum = 0.0;
@@ -76,7 +76,7 @@ void MatrixVectorELLParallel(int M, const int MAXNZ, int **JA, double **AS, cons
 {
     int i, j;
     double sum;
-#pragma omp parallel default(none) shared(x, y, M, JA, AS) private(i, j, sum)
+#pragma omp parallel default(none) shared(x, y, M, JA, AS) private(i, j, sum) num_threads(4)
     for (i = 0; i < M; ++i)
     {
         sum = 0.0;
@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
         {
 #pragma omp master
             {
-                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d with %d threads: time %lf  MFLOPS %lf \n",
+                fprintf(stdout, "Matrix-Vector product with CSR formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
                         M, omp_get_num_threads(), tmlt, mflops);
             }
         }
@@ -371,7 +371,6 @@ int main(int argc, char *argv[])
                 {
                     JA[j][k] = J[i] + 1;
                     AS[j][k] = val[i];
-                    printf("k : %d", k);
                     k++;
                     // printf("j : %d, k : %d, local : %d\n", j, k, locals[index]);
                 }
@@ -434,7 +433,7 @@ int main(int argc, char *argv[])
         {
 #pragma omp master
             {
-                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d with %d threads: time %lf  MFLOPS %lf \n",
+                fprintf(stdout, "Matrix-Vector product with ELLPACK formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
                         M, omp_get_num_threads(), tmlt, mflops);
             }
         }
