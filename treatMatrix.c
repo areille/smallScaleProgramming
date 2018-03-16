@@ -76,12 +76,12 @@ void MatrixVectorELLParallel(int M, const int MAXNZ, int **JA, double **AS, cons
 {
     int i, j;
     double sum;
-#pragma omp parallel default(none) shared(x, y, M, MAXNZ, JA, AS) private(i, j, sum)
+#pragma omp parallel default(none) shared(x, y, M, JA, AS) private(i, j, sum)
     for (i = 0; i < M; ++i)
     {
         sum = 0.0;
 #pragma omp for
-        for (j = IRP[i]; j < IRP[i + 1]; ++j)
+        for (j = 0; j < MAXNZ; ++j)
         {
             sum += AS[i][j] * x[JA[i][j]];
         }
@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
-        double mflops = (2.0e-6) * nrows / tmlt;
+        double mflops = (2.0e-6) * M / tmlt;
 #pragma omp parallel
         {
 #pragma omp master
@@ -429,7 +429,7 @@ int main(int argc, char *argv[])
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
-        double mflops = (2.0e-6) * nrows / tmlt;
+        double mflops = (2.0e-6) * M / tmlt;
 #pragma omp parallel
         {
 #pragma omp master
