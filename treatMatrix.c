@@ -37,60 +37,13 @@ inline int min(int a, int b) { return a < b ? a : b; }
 
 // muylti cpu
 const int ntimes = 50;
-void innerMatrixVector(int rows, int cols, const double *A, int ncallc, const double *x,
-                       double beta, double *restrict y)
-{
-    int row, col, idx;
-    double t0, t1;
-
-#pragma omp parallel for shared(x, y, A, rows, cols, ncallc) private(row, col, idx, t0, t1)
-    for (row = 0; row < rows - rows % 2; row += 2)
-    {
-        if (beta == 0.0)
-        {
-            t0 = beta;
-            t1 = beta;
-        }
-        else
-        {
-            t0 = beta * y[row + 0];
-            t1 = beta * y[row + 1];
-        }
-
-        for (col = 0; col < cols - cols % 4; col += 4)
-        {
-            t0 += A[(row + 0) * ncallc + col + 0] * x[col + 0] + A[(row + 0) * ncallc + col + 1] * x[col + 1] + A[(row + 0) * ncallc + col + 2] * x[col + 2] + A[(row + 0) * ncallc + col + 3] * x[col + 3];
-            t1 += A[(row + 1) * ncallc + col + 0] * x[col + 0] + A[(row + 1) * ncallc + col + 1] * x[col + 1] + A[(row + 1) * ncallc + col + 2] * x[col + 2] + A[(row + 1) * ncallc + col + 3] * x[col + 3];
-        }
-        for (col = cols - cols % 4; col < cols; col++)
-        {
-            t0 += A[(row + 0) * ncallc + col] * x[col];
-            t1 += A[(row + 1) * ncallc + col] * x[col];
-        }
-
-        y[row + 0] = t0;
-        y[row + 1] = t1;
-    }
-
-    for (row = rows - rows % 2; row < rows; row++)
-    {
-        double t = 0.0;
-        for (col = 0; col < cols; col++)
-        {
-            int idx = row * ncallc + col;
-            t = t + A[idx] * x[col];
-        }
-        y[row] = t;
-    }
-}
-
 const int BBS = 1000;
 
 void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
 {
     int i, j;
     double sum;
-#pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum) num_threads(4)
+#pragma omp parallel default(none) shared(x, y, M, IRP, JA, AS) private(i, j, sum)
     for (i = 0; i < M; ++i)
     {
         sum = 0.0;
@@ -116,6 +69,24 @@ void MatrixVectorELL(int M, const int MAXNZ, int **JA, double **AS, const double
             t += AS[i][j] * x[JA[i][j]];
         }
         y[i] = t;
+    }
+}
+
+void MatrixVectorELLParallel(int M, const int MAXNZ, int **JA, double **AS, const double *x, double *y)
+{
+    int i, j;
+    double sum;
+#pragma omp parallel default(none) shared(x, y, M, MAXNZ, JA, AS) private(i, j, sum)
+    for (i = 0; i < M; ++i)
+    {
+        sum = 0.0;
+#pragma omp for
+        for (j = IRP[i]; j < IRP[i + 1]; ++j)
+        {
+            sum += AS[i][j] * x[JA[i][j]];
+        }
+#pragma omp critical
+        y[i] = sum;
     }
 }
 
@@ -299,13 +270,13 @@ int main(int argc, char *argv[])
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
-        double mflops = (2.0e-6) * nrows * ncols / tmlt;
+        double mflops = (2.0e-6) * nrows / tmlt;
 #pragma omp parallel
         {
 #pragma omp master
             {
-                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d x %d with %d threads: time %lf  MFLOPS %lf \n",
-                        nrows, ncols, omp_get_num_threads(), tmlt, mflops);
+                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d with %d threads: time %lf  MFLOPS %lf \n",
+                        M, omp_get_num_threads(), tmlt, mflops);
             }
         }
         free(IRP);
@@ -448,14 +419,25 @@ int main(int argc, char *argv[])
         //     }
         //     printf("\n");
         // }
-        double t1 = wtime();
-        MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
-        double t2 = wtime();
-        double tmlt = (t2 - t1);
-        double mflops = (2.0e-6) * M / tmlt;
 
-        fprintf(stdout, "Ellpack Matrix-Vector product of size %d with 1 thread: time %lf  MFLOPS %lf \n",
-                M, tmlt, mflops);
+        double tmlt = 1e100;
+        for (int try = 0; try < ntimes; try ++)
+        {
+            double t1 = wtime();
+            // MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
+            MatrixVectorELLParallel(M, MAXNZ, JA, AS, x, y);
+            double t2 = wtime();
+            tmlt = dmin(tmlt, (t2 - t1));
+        }
+        double mflops = (2.0e-6) * nrows / tmlt;
+#pragma omp parallel
+        {
+#pragma omp master
+            {
+                fprintf(stdout, "Matrix-Vector product (block_unroll_2) of size %d with %d threads: time %lf  MFLOPS %lf \n",
+                        M, omp_get_num_threads(), tmlt, mflops);
+            }
+        }
         free(JA);
         free(AS);
         free(locals);
