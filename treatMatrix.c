@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
-        double mflops = (2.0e-6) * M / tmlt;
+        double mflops = (2.0e-6) * nz / tmlt;
 #pragma omp parallel
         {
 #pragma omp master
@@ -428,7 +428,7 @@ int main(int argc, char *argv[])
             double t2 = wtime();
             tmlt = dmin(tmlt, (t2 - t1));
         }
-        double mflops = (2.0e-6) * M / tmlt;
+        double mflops = (2.0e-6) * nz / tmlt;
 #pragma omp parallel
         {
 #pragma omp master
