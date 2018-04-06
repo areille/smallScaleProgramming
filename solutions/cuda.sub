@@ -1,0 +1,58 @@
+#!/bin/bash
+##
+## MPI submission script for PBS Delta
+## ----------------------------------
+##
+## Follow the 5 steps below to configure. If you edit this from Windows,
+## *before* submitting via "qsub" run "dos2unix" on this file - or you will
+## get strange errors. You have been warned.
+## 
+## STEP 1:
+## The following line contains the job name:
+##
+#PBS -N cudatest
+##
+## STEP 2:
+##
+##
+#PBS -l select=1:ncpus=1:mpiprocs=1:ngpus=1
+##
+## STEP 3:
+##
+## Select correct queue:
+##
+## for this class we have a special queue
+##
+#PBS -q reserved
+##
+## STEP 4:
+##
+## Put YOUR email address in the next line:
+##
+#PBS -M john.doe@cranfield.ac.uk
+##
+##
+##
+## DO NOT CHANGE the following lines
+##------------------------------------------------
+#PBS -W sandbox=PRIVATE
+#PBS -V
+#PBS -j oe
+#PBS -m abe 
+##
+## Change to working directory
+cd $PBS_O_WORKDIR
+##
+## Calculate number of CPUs
+cpus=`cat $PBS_NODEFILE | wc -l`
+##
+##
+##-------------------------------------------------
+##
+## STEP 5: 
+## 
+## Put correct parameters in mpirun execution line
+## below:
+##
+./deviceQuery
+

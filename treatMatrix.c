@@ -3,14 +3,14 @@
 *   then it turns it into 2 objects :
 *    - one matrix in CSR format
 *    - one matrix in ELLPACK format
-*
+*   Then it proceeds the mulctiplication of this matrix with a vector using openmp
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <omp.h>
+// #include <omp.h>
 #include "wtime.h"
 #include "mmio.h"
 
@@ -172,8 +172,8 @@ int main(int argc, char *argv[])
 
     mm_write_banner(stdout, matcode);
     mm_write_mtx_crd_size(stdout, M, N, nz);
-    for (i = 0; i < nz; i++)
-        fprintf(stdout, "%d %d %20.19g\n", I[i], J[i], val[i]);
+    // for (i = 0; i < nz; i++)
+    //     fprintf(stdout, "%d %d %20.19g\n", I[i], J[i], val[i]);
     printf("Columns : %d, rows : %d, non-zeros : %d\n\n", M, N, nz);
 
     // CREATING VECTORS
@@ -202,9 +202,12 @@ int main(int argc, char *argv[])
             }
             else
             {
-                IRP[index + 1] = IRP[index] + local_row_nz;
-                local_row_nz = 1;
-                index++;
+                if (index <= M)
+                {
+                    IRP[index + 1] = IRP[index] + local_row_nz;
+                    local_row_nz = 1;
+                    index++;
+                }
             }
         }
         // printf("---- CSR FORMAT RESULTS ----\n\n");
@@ -263,23 +266,23 @@ int main(int argc, char *argv[])
         // /****************/
 
         double tmlt = 1e100;
-        for (int try = 0; try < ntimes; try ++)
-        {
-            double t1 = wtime();
-            MatrixVectorCSRParallel(M, IRP, J, val, x, y);
-            double t2 = wtime();
-            tmlt = dmin(tmlt, (t2 - t1));
-        }
-        double mflops = (2.0e-6) * nz / tmlt;
-#pragma omp parallel
-        {
-#pragma omp master
-            {
-                fprintf(stdout, "Matrix-Vector product with CSR formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
-                        M, omp_get_num_threads(), tmlt, mflops);
-            }
-        }
-        free(IRP);
+        //         for (int try = 0; try < ntimes; try ++)
+        //         {
+        //             double t1 = wtime();
+        //             MatrixVectorCSRParallel(M, IRP, J, val, x, y);
+        //             double t2 = wtime();
+        //             tmlt = dmin(tmlt, (t2 - t1));
+        //         }
+        //         double mflops = (2.0e-6) * nz / tmlt;
+        // #pragma omp parallel
+        //         {
+        // #pragma omp master
+        //             {
+        //                 fprintf(stdout, "Matrix-Vector product with CSR formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
+        //                         M, omp_get_num_threads(), tmlt, mflops);
+        //             }
+        //         }
+        // free(IRP);
     }
     else
     {
@@ -315,7 +318,7 @@ int main(int argc, char *argv[])
         /***********************/
         int **JA = (int **)malloc((M + 1) * sizeof(int *));
         double **AS = (double **)malloc(M * sizeof(double *));
-        for (i = 0; i < M; i++)
+        for (i = 0; i <= M; i++)
         {
             JA[i] = (int *)malloc(MAXNZ * sizeof(int));
             AS[i] = (double *)malloc(MAXNZ * sizeof(double));
@@ -372,7 +375,6 @@ int main(int argc, char *argv[])
                     JA[j][k] = J[i] + 1;
                     AS[j][k] = val[i];
                     k++;
-                    // printf("j : %d, k : %d, local : %d\n", j, k, locals[index]);
                 }
                 else
                 {
@@ -420,23 +422,23 @@ int main(int argc, char *argv[])
         // }
 
         double tmlt = 1e100;
-        for (int try = 0; try < ntimes; try ++)
-        {
-            double t1 = wtime();
-            // MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
-            MatrixVectorELLParallel(M, MAXNZ, JA, AS, x, y);
-            double t2 = wtime();
-            tmlt = dmin(tmlt, (t2 - t1));
-        }
-        double mflops = (2.0e-6) * nz / tmlt;
-#pragma omp parallel
-        {
-#pragma omp master
-            {
-                fprintf(stdout, "Matrix-Vector product with ELLPACK formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
-                        M, omp_get_num_threads(), tmlt, mflops);
-            }
-        }
+        //         for (int try = 0; try < ntimes; try ++)
+        //         {
+        //             double t1 = wtime();
+        //             // MatrixVectorELL(M, MAXNZ, JA, AS, x, y);
+        //             MatrixVectorELLParallel(M, MAXNZ, JA, AS, x, y);
+        //             double t2 = wtime();
+        //             tmlt = dmin(tmlt, (t2 - t1));
+        //         }
+        //         double mflops = (2.0e-6) * nz / tmlt;
+        // #pragma omp parallel
+        //         {
+        // #pragma omp master
+        //             {
+        //                 fprintf(stdout, "Matrix-Vector product with ELLPACK formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
+        //                         M, omp_get_num_threads(), tmlt, mflops);
+        //             }
+        //         }
         free(JA);
         free(AS);
         free(locals);
