@@ -266,23 +266,23 @@ int main(int argc, char *argv[])
         // /****************/
 
         double tmlt = 1e100;
-        //         for (int try = 0; try < ntimes; try ++)
-        //         {
-        //             double t1 = wtime();
-        //             MatrixVectorCSRParallel(M, IRP, J, val, x, y);
-        //             double t2 = wtime();
-        //             tmlt = dmin(tmlt, (t2 - t1));
-        //         }
-        //         double mflops = (2.0e-6) * nz / tmlt;
-        // #pragma omp parallel
-        //         {
-        // #pragma omp master
-        //             {
-        //                 fprintf(stdout, "Matrix-Vector product with CSR formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
-        //                         M, omp_get_num_threads(), tmlt, mflops);
-        //             }
-        //         }
-        // free(IRP);
+        for (int try = 0; try < ntimes; try ++)
+        {
+            double t1 = wtime();
+            MatrixVectorCSRParallel(M, IRP, J, val, x, y);
+            double t2 = wtime();
+            tmlt = dmin(tmlt, (t2 - t1));
+        }
+        double mflops = (2.0e-6) * nz / tmlt;
+#pragma omp parallel
+        {
+#pragma omp master
+            {
+                fprintf(stdout, "Matrix-Vector product with CSR formatted matrix of size %d with %d threads: time %lf  MFLOPS %lf \n",
+                        M, omp_get_num_threads(), tmlt, mflops);
+            }
+        }
+        free(IRP);
     }
     else
     {

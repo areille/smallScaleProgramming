@@ -348,8 +348,6 @@ int mm_is_valid(MM_typecode matcode)
     return 1;
 }
 
-
-
 int mm_write_mtx_crd_size(FILE *f, int M, int N, int nz)
 {
     if (fprintf(f, "%d %d %d\n", M, N, nz) != 3)
@@ -357,8 +355,6 @@ int mm_write_mtx_crd_size(FILE *f, int M, int N, int nz)
     else
         return 0;
 }
-
-
 
 int mm_read_mtx_array_size(FILE *f, int *M, int *N)
 {
@@ -589,13 +585,11 @@ char *mm_strdup(const char *s)
     return strcpy(s2, s);
 }
 
-
-
 // GPU implementation of matrix_vector product: see if you can use
 // one thread per row. You'll need to get the addressing right!
 // each block of rows.
-__global__ void gpuMatrixVectorCSR(int rows, int cols, const float *A,
-                                   const float *x, float *y)
+__global__ void gpuMatrixVector(int rows, int cols, const float *A,
+                                const float *x, float *y)
 {
     int tr = threadIdx.x;
     int row = blockIdx.x * blockDim.x + tr;
@@ -610,6 +604,37 @@ __global__ void gpuMatrixVectorCSR(int rows, int cols, const float *A,
             idxm++;
         }
         y[row] = t;
+    }
+}
+
+// Simple CPU implementation of matrix-vector product
+void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
+{
+    int i, j;
+    double t;
+    for (i = 0; i < M; ++i)
+    {
+        t = 0.0;
+        for (j = IRP[i]; j < IRP[i + 1]; ++j)
+        {
+            t += AS[j] * x[JA[j]];
+        }
+        y[i] = t;
+    }
+}
+
+__global__ void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
+{
+    int tr = threadIdx.x;
+    int m = blockIdx.x * blockDim.x + tr;
+    if (m < M)
+    {
+        double sum = 0.0;
+        for (j = IRP[m]; j < IRP[m + 1]; ++j)
+        {
+            sum += AS[j] * x[JA[j]]
+        }
+        y[m] = sum;
     }
 }
 
@@ -707,4 +732,126 @@ int main(int argc, char *argv[])
     {
         x[i] = 100.0f * ((double)rand()) / RAND_MAX;
     }
+
+    if (isCsrFormat == true)
+    {
+        /*************************/
+        /* CSR FORMAT CALCULATION*/
+        /*************************/
+        int *IRP = (int *)malloc((M + 1) * sizeof(int));
+        // ASSUMING MATLAB FIRST COLUMN INDEXING
+        IRP[0] = 1;
+        int index = 0;
+        int local_row_nz = 1;
+        for (i = 0; i < nz; i++)
+        {
+            if (I[i] == I[i + 1])
+            {
+                local_row_nz++;
+            }
+            else
+            {
+                if (index <= M)
+                {
+                    IRP[index + 1] = IRP[index] + local_row_nz;
+                    local_row_nz = 1;
+                    index++;
+                }
+            }
+        }
+
+        // ----------------------- Host memory initialisation ----------------------- //
+
+        double *h_y_d = new double[M];
+        std::cout << "Matrix-vector product: single thread per row version " << std::endl;
+        std::cout << "Test case: " << M << " x " << M << std::endl;
+
+        // ---------------------- Device memory initialisation ---------------------- //
+        //  Allocate memory space on the device.
+
+        int *d_IRP, *d_J;
+        double *d_val, *d_x, *d_y;
+
+        checkCudaErrors(cudaMalloc((void **)&d_IRP, (M+1) * sizeof(int)));
+        checkCudaErrors(cudaMalloc((void **)&d_J, nz * sizeof(int)));
+        checkCudaErrors(cudaMalloc((void **)&d_val, nz * sizeof(double)));
+        checkCudaErrors(cudaMalloc((void **)&d_x, M * sizeof(double)));
+        checkCudaErrors(cudaMalloc((void **)&d_y, M * sizeof(double)));
+
+        // Copy matrices from the host (CPU) to the device (GPU).
+        
+        checkCudaErrors(cudaMemcpy(d_IRP, IRP, (M+1) * sizeof(int), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(d_J, J, nz * sizeof(int), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(d_val, val, nz * sizeof(double), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(d_x, x, M * sizeof(double), cudaMemcpyHostToDevice));
+        checkCudaErrors(cudaMemcpy(d_y, y, M * sizeof(double), cudaMemcpyHostToDevice));
+
+
+        // ------------------------ Calculations on the CPU ------------------------- //
+        float flopcnt = 2.e-6 * nrows * ncols;
+
+        // Create the CUDA SDK timer.
+        StopWatchInterface *timer = 0;
+        sdkCreateTimer(&timer);
+
+        timer->start();
+        // CpuMatrixVector(nrows, ncols, h_A, h_x, h_y);
+        MatrixVectorCSR(M, IRP, J, val, x, y);
+
+        timer->stop();
+        float cpuflops = flopcnt / timer->getTime();
+        std::cout << "  CPU time: " << timer->getTime() << " ms."
+                  << " GFLOPS " << cpuflops << std::endl;
+
+        // ------------------------ Calculations on the GPU ------------------------- //
+
+        // Calculate the dimension of the grid of blocks (1D) necessary to cover
+        // all rows.
+        const dim3 GRID_DIM((nrows - 1 + BLOCK_DIM.x) / BLOCK_DIM.x, 1);
+
+        timer->reset();
+        timer->start();
+        MatrixVectorCSRParallel<<<GRID_DIM, BLOCK_DIM>>>(M, d_IRP, d_J, d_val, d_x, d_y);
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        timer->stop();
+        float gpuflops = flopcnt / timer->getTime();
+        std::cout << "  GPU time: " << timer->getTime() << " ms."
+                  << " GFLOPS " << gpuflops << std::endl;
+
+        // Download the resulting vector d_y from the device and store it in h_y_d.
+        checkCudaErrors(cudaMemcpy(h_y_d, d_y, nrows * sizeof(float), cudaMemcpyDeviceToHost));
+
+        // Now let's check if the results are the same.
+        float reldiff = 0.0f;
+        float diff = 0.0f;
+
+        for (int i = 0; i < M; ++i)
+        {
+            float maxabs = std::max(std::abs(y[i]), std::abs(h_y_d[i]));
+            if (maxabs == 0.0)
+                maxabs = 1.0;
+            reldiff = std::max(reldiff, std::abs(y[i] - h_y_d[i]) / maxabs);
+            diff = std::max(diff, std::abs(y[i] - h_y_d[i]));
+        }
+        std::cout << "Max diff = " << diff << "  Max rel diff = " << reldiff << std::endl;
+        // Rel diff should be as close as possible to unit roundoff; float
+        // corresponds to IEEE single precision, so unit roundoff is
+        // 1.19e-07
+        //
+
+        // ------------------------------- Cleaning up ------------------------------ //
+
+        delete timer;
+
+        checkCudaErrors(cudaFree(d_A));
+        checkCudaErrors(cudaFree(d_x));
+        checkCudaErrors(cudaFree(d_y));
+
+        delete[] h_A;
+        delete[] h_x;
+        delete[] h_y;
+        delete[] h_y_d;
+    }
+    return 0;
 }
