@@ -625,6 +625,7 @@ void MatrixVectorCSR(int M, const int *IRP, const int *JA, const double *AS, con
 
 __global__ void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, const double *AS, const double *x, double *y)
 {
+    int j;
     int tr = threadIdx.x;
     int m = blockIdx.x * blockDim.x + tr;
     if (m < M)
@@ -632,7 +633,7 @@ __global__ void MatrixVectorCSRParallel(int M, const int *IRP, const int *JA, co
         double sum = 0.0;
         for (j = IRP[m]; j < IRP[m + 1]; ++j)
         {
-            sum += AS[j] * x[JA[j]]
+            sum += AS[j] * x[JA[j]];
         }
         y[m] = sum;
     }
@@ -788,7 +789,7 @@ int main(int argc, char *argv[])
 
 
         // ------------------------ Calculations on the CPU ------------------------- //
-        float flopcnt = 2.e-6 * nrows * ncols;
+        float flopcnt = 2.e-6 * M;
 
         // Create the CUDA SDK timer.
         StopWatchInterface *timer = 0;
@@ -820,21 +821,21 @@ int main(int argc, char *argv[])
                   << " GFLOPS " << gpuflops << std::endl;
 
         // Download the resulting vector d_y from the device and store it in h_y_d.
-        checkCudaErrors(cudaMemcpy(h_y_d, d_y, nrows * sizeof(float), cudaMemcpyDeviceToHost));
+        // checkCudaErrors(cudaMemcpy(h_y_d, d_y, nrows * sizeof(float), cudaMemcpyDeviceToHost));
 
-        // Now let's check if the results are the same.
-        float reldiff = 0.0f;
-        float diff = 0.0f;
+        // // Now let's check if the results are the same.
+        // float reldiff = 0.0f;
+        // float diff = 0.0f;
 
-        for (int i = 0; i < M; ++i)
-        {
-            float maxabs = std::max(std::abs(y[i]), std::abs(h_y_d[i]));
-            if (maxabs == 0.0)
-                maxabs = 1.0;
-            reldiff = std::max(reldiff, std::abs(y[i] - h_y_d[i]) / maxabs);
-            diff = std::max(diff, std::abs(y[i] - h_y_d[i]));
-        }
-        std::cout << "Max diff = " << diff << "  Max rel diff = " << reldiff << std::endl;
+        // for (int i = 0; i < M; ++i)
+        // {
+        //     float maxabs = std::max(std::abs(y[i]), std::abs(h_y_d[i]));
+        //     if (maxabs == 0.0)
+        //         maxabs = 1.0;
+        //     reldiff = std::max(reldiff, std::abs(y[i] - h_y_d[i]) / maxabs);
+        //     diff = std::max(diff, std::abs(y[i] - h_y_d[i]));
+        // }
+        // std::cout << "Max diff = " << diff << "  Max rel diff = " << reldiff << std::endl;
         // Rel diff should be as close as possible to unit roundoff; float
         // corresponds to IEEE single precision, so unit roundoff is
         // 1.19e-07
@@ -844,7 +845,9 @@ int main(int argc, char *argv[])
 
         delete timer;
 
-        checkCudaErrors(cudaFree(d_A));
+        checkCudaErrors(cudaFree(d_IRP));
+        checkCudaErrors(cudaFree(d_J));
+        checkCudaErrors(cudaFree(d_val));
         checkCudaErrors(cudaFree(d_x));
         checkCudaErrors(cudaFree(d_y));
 
